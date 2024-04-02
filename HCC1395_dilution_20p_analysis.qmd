@@ -1,0 +1,102 @@
+---
+title: "HCC1395_20p_dilution_analysis"
+author: "Stephanie Georges"
+editor: source
+format: html
+embed-resources: true
+editor_options: 
+  chunk_output_type: console
+---
+
+## Concordance of Allele Frequencies between Diluted and Full-Strength, RUFUS-adjudicated validated SeqC2 HCC1395 SNVs
+
+Load libaries
+```{r}
+library(tidyverse)
+library(ggpmisc)
+```
+
+
+### 10% vs 100%
+
+Load intersected txt
+```{r}
+data <- read.table("data/1-4/alt_snv_LL_EA_NC_tumor_20p_diluted_normal_intersect.txt", header=T)
+```
+
+
+Get rid of LL_EA_NC columns
+```{r}
+dilution_data <- data |> select(-Pos_LL_EA_NC, -Ref_LL_EA_NC, -Alt_LL_EA_NC, -DP_LL_EA_NC, -AD_LL_EA_NC)
+```
+
+
+Get rid of any lines that do not report the variant in both 100% and 20%
+```{r}
+dilution_data <- dilution_data |> filter(Pos_100 != 0 & Pos_20 != 0)
+```
+
+
+Filter any lines where DP is <150 or >300 (for 100 or dilution) 
+```{r}
+dilution_data <- dilution_data |> filter(DP_100 >= 150 & DP_100 <= 300 & DP_20 >= 150 & DP_20 <= 300)
+```
+
+
+Extract AD[1] value for 100% dilution sample
+```{r}
+dilution_data <- dilution_data |> mutate(AD_100_copy = AD_100)
+dilution_data <- dilution_data |> 
+  separate(AD_100_copy, into = c("AD_100_0", "AD_100_1", "AD_100_2", "AD_100_3"), sep = ",")
+```
+
+
+Add a column for AF[1] for 100% dilution
+```{r}
+dilution_data <- dilution_data |> mutate(AF_100_1 = as.numeric(AD_100_1)/as.numeric(DP_100))
+```
+
+
+Filter by AF > 0.2 in 100% dilution
+[Note this took things from 16,423 to 12,715 (-3708 variants)]
+```{r}
+dilution_data <- dilution_data |> filter(AF_100_1 >= 0.20)
+```
+
+
+Extract AD[1] value for 20% dilution sample
+```{r}
+dilution_data <- dilution_data |> mutate(AD_20_copy = AD_20)
+dilution_data <- dilution_data |> 
+  separate(AD_20_copy, into = c("AD_20_0", "AD_20_1", "AD_20_2", "AD_20_3"), sep = ",")
+```
+
+
+Add a column for AF[1] for 20% dilution
+```{r}
+dilution_data <- dilution_data |> mutate(AF_20_1 = as.numeric(AD_20_1)/as.numeric(DP_20))
+```
+
+Determine R^2 value
+```{r}
+
+```
+
+
+
+Plot regression line
+```{r}
+dilution_data |>
+  ggplot(aes(x = AF_100_1, y = AF_20_1)) +
+  geom_point(color="blue") + 
+  labs(x = "Allele Frequency for 100% Tumor Sample", 
+       y = "Allele Frequency for 20% Tumor Sample", 
+       title = "Allele Frequency Concordance of 20% Tumor vs 100% Tumor",
+       subtitle = "For RUFUS-adjudicated, SEQC2-validated HCC1395 SNVs") + 
+  theme(plot.title = element_text(size=14)) +
+  expand_limits(x = 0, y = 0) +
+  stat_poly_line(color="black") + 
+  stat_poly_eq()
+```
+
+
